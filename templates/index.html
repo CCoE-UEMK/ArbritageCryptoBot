@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitrage Opportunities</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .highlight {
+            background-color: yellow;
+        }
+        .opportunity {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Arbitrage Opportunities</h1>
+    <p>Welcome to the Arbitrage Monitoring App!</p>
+
+    <!-- Input fields for threshold profit and asset value -->
+    <label for="profitThreshold">Profit Threshold ($):</label>
+    <input type="number" id="profitThreshold" placeholder="Enter minimum profit" value="100" />
+    
+    <label for="assetValue">Asset Value (BTC):</label>
+    <input type="number" id="assetValue" placeholder="Enter asset value" value="1" step="0.1" min="0.1" />
+
+    <table id="arbitrageTable" border="1">
+        <thead>
+            <tr>
+                <th>Pair</th>
+                <th>Buy Price</th>
+                <th>Sell Price</th>
+                <th>Profit</th>
+                <th>Profit Percentage</th>
+                <th>Opportunity</th> <!-- New column for arbitrage opportunity with links -->
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Table rows will be inserted here dynamically -->
+        </tbody>
+    </table>
+
+    <script>
+        // Define exchange URLs for redirection
+        const exchangeLinks = {
+            "Coinbase": "https://www.coinbase.com/",
+            "CoinGecko": "https://www.coingecko.com/",
+            "Bitfinex": "https://www.bitfinex.com/",
+            "Kraken": "https://www.kraken.com/",
+            "KuCoin": "https://www.kucoin.com/",
+            "OKX": "https://www.okx.com/",
+	    "Gemini": "https://www.gemini.com/"
+        };
+
+        // Function to fetch arbitrage opportunities and update the table
+        function fetchArbitrageData() {
+            $.get('http://127.0.0.1:5000/monitor_arbitrage', function(data) {
+                const arbitrageOpportunities = data.arbitrage_opportunities;
+                
+                // Clear the table before appending new data
+               // $('#arbitrageTable tbody').empty();
+
+                // Get user inputs for profit threshold and asset value
+                const profitThreshold = parseFloat($('#profitThreshold').val());
+                const assetValue = parseFloat($('#assetValue').val());
+
+                // Loop through the arbitrage opportunities and populate the table
+                arbitrageOpportunities.forEach(function(opportunity) {
+                    const profit = parseFloat(opportunity.profit.replace('$', '').replace(',', ''));
+                    const profitPercentage = parseFloat(opportunity.profit_percentage);
+                    
+                    // Calculate profit for the selected asset value
+                    const adjustedProfit = (profit / 1) * assetValue;
+                    const adjustedProfitText = "$" + adjustedProfit.toFixed(2);
+
+                    // Check if profit exceeds the user-defined threshold
+                    const highlightClass = adjustedProfit >= profitThreshold ? 'highlight' : '';
+                    const opportunityText = adjustedProfit >= profitThreshold ? 'Arbitrage Opportunity' : '';
+
+                    // Extract exchange names from the "pair" field for creating links
+                    const [buyExchange, sellExchange] = opportunity.pair.split(' to ');
+
+                    // Construct links for buying and selling
+                    const buyLink = exchangeLinks[buyExchange] ? `<a href="${exchangeLinks[buyExchange]}" target="_blank">${buyExchange}</a>` : buyExchange;
+                    const sellLink = exchangeLinks[sellExchange] ? `<a href="${exchangeLinks[sellExchange]}" target="_blank">${sellExchange}</a>` : sellExchange;
+
+                    // Construct the row with links for arbitrage opportunity
+                    const row = `<tr class="${highlightClass}">
+                        <td>${buyLink} to ${sellLink}</td>
+                        <td>${opportunity.buy_price}</td>
+                        <td>${opportunity.sell_price}</td>
+                        <td>${adjustedProfitText}</td>
+                        <td>${profitPercentage}</td>
+                        <td class="${highlightClass}">${opportunityText}</td> <!-- Add opportunity text -->
+                    </tr>`;
+                    
+                    // Append the row to the table body
+                    $('#arbitrageTable tbody').append(row);
+                });
+            });
+        }
+
+        // Fetch data every 10 seconds
+        setInterval(fetchArbitrageData, 10000);
+
+        // Initial fetch when the page loads
+        fetchArbitrageData();
+    </script>
+</body>
+</html>
